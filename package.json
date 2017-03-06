@@ -1,0 +1,29 @@
+{
+	"name": "bugbot",
+	"version": "0.0.1",
+	"description": "Slack App for looking up bugs on bmo",
+	"main": "server.js",
+	"scripts": {
+		"start": "node server.js"
+	},
+	"dependencies": {
+		"express": "^4.15.0",
+		"body-parser": "^1.17.0",
+		"httpinvoke": "^1.4.0",
+		"bugzilla-readable-status": "^1.5.2"
+	},
+	"engines": {
+		"node": "6.9.x"
+	},
+	"repository": {
+		"url": "https://gomix.com/#!/project/bugbot"
+	},
+	"license": "MPL-2.0",
+	"keywords": [
+		"node",
+		"gomix",
+		"express",
+		"mozilla",
+		"bugzilla"
+	]
+}
