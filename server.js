@@ -7,10 +7,12 @@ var bodyParser = require('body-parser');
 var httpinvoke = require('httpinvoke');
 var readable = require('bugzilla-readable-status').readable;
 
+//TODO: this is incomplete and the list of error codes appears to be missing from bugzilla documentation
+//      will have to dig through the REST API source to find all the values
 var error_codes = {
   100: "This is not a valid bug number.",
   101: "This bug does not exist in bugzilla.mozilla.org",
-  102: "This bug is in a security group, if you have access to it, you will need to view it on bugzilla.mozilla.org"
+  102: "This bug is restricted to users in a group this bot is not part of, if you have access to it, you will need to view it on bugzilla.mozilla.org"
 }
 
 var app = express(); //TOFIX: what's the Sinatra of Node.js?
