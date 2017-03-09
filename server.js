@@ -91,6 +91,8 @@ function returnStatus(data, requestor, requestorId, responseURL) {
   
   var URL = 'https://bugzilla.mozilla.org/show_bug.cgi?id=' + data.id;
   
+  var readableStatus = readable(data);
+  
   // prepare response
   var response = {
     response_type: "in_channel",
@@ -98,8 +100,9 @@ function returnStatus(data, requestor, requestorId, responseURL) {
     attachments: [
       {
         title: '<' + URL + '|Bug ' + data.id + '>: ' + data.summary,
-        text: readable(data),
-        mrkdwn_in: ["title", "text"]
+        text: readableStatus,
+        mrkdwn_in: ["title", "text"],
+        fallback: URL + ' - ' + data.summary + ': ' + readableStatus
       },
     ],
     mrkdwn: true
@@ -111,7 +114,9 @@ function returnStatus(data, requestor, requestorId, responseURL) {
 function returnStatusError(message, responseURL) {  
   var response = {
     response_type: "ephemeral", 
-    text: message
+    text: message,
+    fallback: message,
+    color: 'warning'
   };
   
   postResponse(responseURL, response);
