@@ -6,6 +6,11 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var httpinvoke = require('httpinvoke');
 var readable = require('bugzilla-readable-status').readable;
+var WebClient = require('@slack/client').WebClient;
+
+var createSlackEventAdapter = require('@slack/events-api').createSlackEventAdapter;
+var slackEvents = createSlackEventAdapter(process.env.SLACK_VERIFICATION_TOKEN);
+var slackClient = new WebClient(process.env.SLACK_ACCESS_TOKEN);
 
 //TODO: this is incomplete and the list of error codes appears to be missing from bugzilla documentation
 //      will have to dig through the REST API source to find all the values
@@ -17,9 +22,13 @@ var error_codes = {
 
 var app = express(); //TOFIX: what's the Sinatra of Node.js?
 
+
 app.use(bodyParser.urlencoded({
-  type: "application/x-www-form-urlencoded"
+  type: "application/x-www-form-urlencoded",
+  extended: false
 }));
+
+app.use('/slack/events', bodyParser.json(), slackEvents.expressMiddleware());
 
 // http://expressjs.com/en/starter/static-files.html
 app.use(express.static('public'));
@@ -30,9 +39,6 @@ app.get("/", function (request, response) {
 });
 
 app.post("/bug", function (request, response) {
-  
-  console.log(request.body);
-  
   // is this a legit request
   if (!isValidRequestToken(request.body.token)) {
     response.sendStatus(400);
@@ -46,19 +52,35 @@ app.post("/bug", function (request, response) {
   }
   
   // let the requestor know we are working on it
-  response.send('I am looking up bug ' + request.body.text + ' for you.');
+  response.send(200, 'I am looking up bug ' + request.body.text + ' for you.');
   
   // do the lookup
   lookup(request.body.text, request.body.user_name, request.body.user_id, request.body.response_url);
-
 });
+
+slackEvents.on('message', function(event) {
+  let bugs = getBugNumbers(event.text);
+
+  if (event.bot_id || !bugs.size) {
+    return;
+  }
+
+  Promise.all([...bugs.values()].map(id => getBug(id))).then(function(results) {
+    for (let [id, data] of results) {
+      respondToBug(id, event.channel, data);
+    }
+  }, function(err) {
+    console.error(err);
+  });
+});
+slackEvents.on('error', console.error);
 
 /**
   Validate request
   returns: boolean
 */
 function isValidRequestToken(token) {
-  return (token === process.env.TOKEN)
+  return (token == process.env.SLACK_VERIFICATION_TOKEN)
 }
 
 /**
@@ -68,12 +90,8 @@ function isValidRequestToken(token) {
 function lookup(bugId, requestor, requestorId, responseURL) {
   
   // let's find the bug
-  httpinvoke('https://bugzilla.mozilla.org/rest/bug/' + bugId, 'GET').then(function(res) {
-
+  getBug(bugId).then(([id, data]) => {
     var errorMessage;
-    var data = JSON.parse(res.body);
-        
-    console.log(data);
     
     if (data.bugs) {
       returnStatus(data.bugs[0], requestor, requestorId, responseURL);
@@ -123,9 +141,6 @@ function returnStatusError(message, responseURL) {
 }
 
 function postResponse(responseURL, response) {
-
-  console.log(response);
-  
   // POST response back to Slack
   httpinvoke(responseURL, 'POST', {
     headers: {
@@ -139,6 +154,55 @@ function postResponse(responseURL, response) {
       console.log('Posted response to Slack')
     }
   });
+}
+
+/**
+  Retrieve the bug with the given bug number using the REST api.
+  returns: an array [bugid, jsondata]
+*/
+function getBug(bugId) {
+  return httpinvoke('https://bugzilla.mozilla.org/rest/bug/' + bugId, 'GET').then(function(res) {
+    return [bugId, JSON.parse(res.body)];
+  });
+}
+
+/**
+  Send information about a specific bug to a channel via slack client
+  returns: null
+*/
+function respondToBug(bugId, channel, data) {
+  let response, attachments;
+
+  if (data.bugs && data.bugs.length) {
+    let bug = data.bugs[0];
+    response = `https://bugzil.la/${bug.id} — ${bug.resolution}, ${bug.assigned_to} — ${bug.summary}`;
+    attachments = [{ text: readable(bug) }];
+  } else if (data.code == 101) {
+    response = `<https://bugzil.la/${bugId}|bug ${bugId}> was not found`;
+  } else if (data.code == 102) { /* restricted group */
+    response = `<https://bugzil.la/${bugId}|bug ${bugId}> is not accessible`;
+  }
+
+  if (response) {
+    let opts = { as_user: false, unfurl_links: false, unfurl_media: false, mrkdwn: false, attachments: attachments };
+    slackClient.chat.postMessage(channel, response, opts);
+  }
+}
+
+/**
+  Retrieves unique bug numbers from the passed string
+  returns: A Set with the detected bug numbers
+*/
+function getBugNumbers(str) {
+  let regex = /(?:^|\s)bug\s+(\d+)(?:[^\d]|$)/ig;
+  let results = new Set();
+
+  let match;
+  while ((match = regex.exec(str)) !== null) {
+    results.add(match[1]);
+  }
+
+  return results;
 }
 
 // listen for requests :)
