@@ -1,6 +1,8 @@
 Bugbot Server
 ==============
 
+[![Remix on Glitch](https://cdn.glitch.com/2703baf2-b643-4da7-ab91-7ee2a2d00b5b%2Fremix-button.svg)](https://glitch.com/edit/#!/import/github/emceeaich/bmo-bugbot)
+
 A node.js app that responses to requests for a Slack App for looking up bugs
 and their status on bugzilla.mozilla.org.
 
