@@ -23,7 +23,6 @@ var error_codes = {
 
 var app = express(); //TOFIX: what's the Sinatra of Node.js?
 
-
 app.use(bodyParser.urlencoded({
   type: "application/x-www-form-urlencoded",
   extended: false
@@ -53,13 +52,17 @@ app.post("/bug", function (request, response) {
   }
   
   // let the requestor know we are working on it
-  response.send(200, 'I am looking up bug ' + request.body.text + ' for you.');
+  response.status(200).send('I am looking up bug ' + request.body.text + ' for you.');
   
   // do the lookup
   lookup(request.body.text, request.body.user_name, request.body.user_id, request.body.response_url);
 });
 
 slackEvents.on('message', function(event) {
+  handleBugs(event);
+});
+
+function handleBugs(event) {
   let bugs = getBugNumbers(event.text);
 
   if (event.bot_id || !bugs.size) {
@@ -73,7 +76,8 @@ slackEvents.on('message', function(event) {
   }, function(err) {
     console.error(err);
   });
-});
+}
+
 slackEvents.on('error', console.error);
 
 /**
@@ -126,7 +130,6 @@ function returnStatus(data, requestor, requestorId, responseURL) {
     ],
     mrkdwn: true
   };
-  
   postResponse(responseURL, response);
 }
 
