@@ -7,6 +7,7 @@ var bodyParser = require('body-parser');
 var httpinvoke = require('httpinvoke');
 var readable = require('bugzilla-readable-status').readable;
 var WebClient = require('@slack/client').WebClient;
+var Set = require('es6-set');
 
 var createSlackEventAdapter = require('@slack/events-api').createSlackEventAdapter;
 var slackEvents = createSlackEventAdapter(process.env.SLACK_VERIFICATION_TOKEN);
